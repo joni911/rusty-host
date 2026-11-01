@@ -1,0 +1,23 @@
+# Project scaffolding recipes.
+#
+# Format: one `Name=<command or URL>` per line, exactly like Laragon's
+# sites.manifest.conf. `%s` is replaced with the project name.
+#
+#   * a value starting with http:// or https:// is downloaded and unpacked
+#   * anything else is run as a command in the new project directory
+#   * an empty value creates an empty project
+#
+# Adding a recipe needs no code and no rebuild.
+
+# Empty project, useful as a starting point.
+Blank=
+
+# WordPress — downloaded and unpacked.
+WordPress=https://wordpress.org/latest.tar.gz
+
+# Laravel and Lumen — Composer creates the project.
+Laravel=composer create-project laravel/laravel %s --prefer-dist
+Lumen=composer create-project laravel/lumen %s --prefer-dist
+
+# A plain PHP project with Composer's skeleton.
+Composer=composer init --name=local/%s --no-interaction

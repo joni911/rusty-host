@@ -9,6 +9,7 @@ pub mod hosts;
 pub mod ports;
 pub mod proc;
 pub mod project;
+pub mod recipe;
 pub mod resolve;
 pub mod template;
 pub mod unpack;
