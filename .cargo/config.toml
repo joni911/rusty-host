@@ -1,0 +1,12 @@
+# Linker selection for the Windows GNU target.
+#
+# Rust's bundled rust-mingw is incomplete (no crtbegin.o/crtend.o), and Rust
+# pins its own x86_64-w64-mingw32-gcc shim. We point the target linker at a
+# complete mingw-w64 installation instead. `scripts/build.sh` locates one; this
+# file records the setting so plain `cargo` works too when MINGW_ROOT is set.
+#
+# Override per machine with:
+#   MINGW_ROOT=/path/to/mingw64 scripts/build.sh <command>
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc.exe"
+ar = "x86_64-w64-mingw32-ar.exe"

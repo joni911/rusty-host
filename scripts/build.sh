@@ -1,24 +1,52 @@
 #!/usr/bin/env bash
-# Build helper — pins the toolchain and fixes the GNU-toolchain PATH on Windows.
+# Build helper — makes the Windows GNU toolchain actually usable.
 #
-# Why this exists: the bundled `dlltool.exe` shipped with the GNU toolchain needs
-# its own directory on PATH so it can spawn `ld.exe`. Without it, crates that
-# generate import libraries (anything depending on `windows-sys`) fail with
-#   dlltool could not create import library ... CreateProcess
+# Rust's bundled `rust-mingw` component is incomplete: it ships crt2.o and the
+# import libraries but *not* gcc's crtbegin.o/crtend.o, so any crate with a
+# build script fails with:
+#   ld: cannot find crtbegin.o
+# A full mingw-w64 installation supplies them. This script locates one and puts
+# it on PATH ahead of Rust's shim, and also exposes Rust's rust-mingw directory
+# for dlltool (whose child ld.exe must be findable).
 #
-# rusty-host's dependency graph is deliberately free of such crates today, but
-# this keeps CI and contributors on an identical environment.
+# rusty-host avoids C dependencies, but build scripts are unavoidable, so this
+# keeps local and CI builds identical.
 set -euo pipefail
 
-# cargo/rustup live here when the shell is not a login shell
 export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
 
 if [[ "$(uname -s)" == *MINGW* || "$(uname -s)" == *MSYS* ]]; then
-  TC="${RUSTUP_HOME:-$HOME/.rustup}/toolchains/stable-x86_64-pc-windows-gnu/lib/rustlib/x86_64-pc-windows-gnu/bin"
-  if [[ -d "$TC/self-contained" ]]; then
-    export PATH="$TC/self-contained:$TC:$PATH"
-  fi
   export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-stable-x86_64-pc-windows-gnu}"
+
+  # 1. Prefer a real mingw-w64 installation (scoop, msys2, chocolatey, winlibs).
+  for candidate in \
+      "${MINGW_ROOT:-}" \
+      "$HOME/scoop/apps/mingw-winlibs/current" \
+      /c/msys64/ucrt64 \
+      /c/msys64/mingw64 \
+      /c/tools/mingw64 \
+      /mingw64 ; do
+    [[ -n "$candidate" && -x "$candidate/bin/x86_64-w64-mingw32-gcc.exe" ]] || continue
+    export PATH="$candidate/bin:$PATH"
+    MINGW_FOUND="$candidate"
+    break
+  done
+
+  # 2. Rust's own rust-mingw directory: supplies dlltool and import libraries.
+  SYSROOT="${RUSTUP_HOME:-$HOME/.rustup}/toolchains/$RUSTUP_TOOLCHAIN/lib/rustlib/x86_64-pc-windows-gnu"
+  [[ -d "$SYSROOT/lib/self-contained" ]] && export PATH="$SYSROOT/lib/self-contained:$SYSROOT/bin/self-contained:$PATH"
+
+  # Point rustc at the real gcc, not Rust's shim.
+  if [[ -n "${MINGW_FOUND:-}" ]]; then
+    CC_WIN="$(cygpath -w "$MINGW_FOUND/bin/x86_64-w64-mingw32-gcc.exe" 2>/dev/null || echo "$MINGW_FOUND/bin/x86_64-w64-mingw32-gcc.exe")"
+    export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="$CC_WIN"
+    export CC_x86_64_pc_windows_gnu="$CC_WIN"
+  fi
+
+  if [[ -z "${MINGW_FOUND:-}" ]]; then
+    echo "warning: no complete mingw-w64 found; build scripts may fail on crtbegin.o" >&2
+    echo "         install one (e.g. scoop install mingw-winlibs) or set MINGW_ROOT" >&2
+  fi
 fi
 
 exec cargo "$@"
