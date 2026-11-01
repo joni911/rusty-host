@@ -65,10 +65,10 @@ fn discover_fails_cleanly_outside_any_workspace() {
     fs::create_dir_all(&orphan).unwrap();
 
     let err = Workspace::discover(&orphan).unwrap_err();
-    match err {
-        DiscoverError::NotFound { .. } => {}
-        other => panic!("expected NotFound, got {other:?}"),
-    }
+    assert!(
+        matches!(err, DiscoverError::NotFound { .. }),
+        "expected NotFound, got {err}"
+    );
 }
 
 #[test]

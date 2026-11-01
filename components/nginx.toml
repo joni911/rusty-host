@@ -1,0 +1,15 @@
+# Nginx — official Windows zip.
+name = "nginx"
+kind = "server"
+provides = ["nginx"]
+
+[resolve]
+strategy = "html-scrape"
+index_url = "https://nginx.org/en/download.html"
+file_regex = 'nginx-(\d+\.\d+\.\d+)\.zip'
+base_url = "https://nginx.org/download/nginx-{version}.zip"
+
+[[artifacts]]
+executable = "nginx.exe"
+version_cmd = ["nginx.exe", "-v"]
+version_regex = 'nginx/(\d+\.\d+\.\d+)'

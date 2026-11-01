@@ -1,0 +1,21 @@
+# PHP for Windows — versions resolved live from the official releases index.
+# https://windows.php.net/downloads/releases/
+name = "php"
+kind = "runtime"
+provides = ["php"]
+
+[resolve]
+strategy = "json-index"
+index_url = "https://downloads.php.net/~windows/releases/releases.json"
+variant = "ts-vs17-x64"
+url_field = "zip.path"
+base_url = "https://downloads.php.net/~windows/releases/"
+
+[[artifacts]]
+executable = "php.exe"
+version_cmd = ["php.exe", "-r", "echo PHP_VERSION;"]
+version_regex = '^(\d+\.\d+\.\d+)'
+
+[config]
+template = "php.ini.tpl"
+target = "conf/php/{version}/php.ini"

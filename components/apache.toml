@@ -1,0 +1,21 @@
+# Apache HTTP Server — Apache Lounge Windows builds.
+# No version API exists, so the download listing is scraped. The decoder must
+# require a browser-like User-Agent or the site returns nothing.
+name = "apache"
+kind = "server"
+provides = ["apache", "httpd"]
+
+[resolve]
+strategy = "html-scrape"
+index_url = "https://www.apachelounge.com/download/"
+file_regex = 'httpd-2\.4\.(\d+)-\d+-Win64-VS\d+\.zip'
+base_url = "https://www.apachelounge.com/download/VS18/binaries/"
+
+[[artifacts]]
+executable = "bin/httpd.exe"
+version_cmd = ["bin/httpd.exe", "-v"]
+version_regex = 'Apache/(\d+\.\d+\.\d+)'
+
+[config]
+template = "httpd.conf.tpl"
+target = "conf/apache/{version}/httpd.conf"

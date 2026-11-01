@@ -1,0 +1,15 @@
+# Mailpit — local mail capture (replaces MailCatcher).
+# Single Rust binary: SMTP on 1025, web UI on 8025.
+name = "mailpit"
+kind = "tool"
+provides = ["mailpit", "mailcatcher"]
+
+[resolve]
+strategy = "github-release"
+repo = "axllent/mailpit"
+asset_regex = 'mailpit-windows-amd64\.zip$'
+
+[[artifacts]]
+executable = "mailpit.exe"
+version_cmd = ["mailpit.exe", "version"]
+version_regex = 'v?(\d+\.\d+\.\d+)'

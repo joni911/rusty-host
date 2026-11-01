@@ -1,0 +1,22 @@
+# MariaDB — portable zip, no installer required.
+# Chosen over MySQL because MySQL ships installer-first on Windows, which
+# breaks the portability promise (PRD §11 decision 1).
+name = "mariadb"
+kind = "database"
+provides = ["mariadb", "mysql"]
+
+[resolve]
+strategy = "html-scrape"
+index_url = "https://archive.mariadb.org/"
+file_regex = 'mariadb-(\d+\.\d+\.\d+)-winx64\.zip'
+base_url = "https://archive.mariadb.org/mariadb-{version}/winx64-packages/"
+prefer_lts = true
+
+[[artifacts]]
+executable = "bin/mariadbd.exe"
+version_cmd = ["bin/mariadbd.exe", "--version"]
+version_regex = '(\d+\.\d+\.\d+)-MariaDB'
+
+[config]
+template = "my.ini.tpl"
+target = "conf/mariadb/{version}/my.ini"

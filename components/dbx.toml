@@ -1,0 +1,17 @@
+# dbx — portable database client (replaces HeidiSQL, PRD §3.5 item 47).
+# 42 MB Rust/Tauri app supporting 100+ engines.
+#
+# The asset regex MUST select the -portable.zip and never the installer:
+# -setup.exe, -offline-setup.exe, .msi, .deb, .rpm, .AppImage, .dmg are all
+# published alongside it.
+name = "dbx"
+kind = "tool"
+provides = ["dbx", "database-client"]
+
+[resolve]
+strategy = "github-release"
+repo = "t8y2/dbx"
+asset_regex = 'DBX_[\d.]+_x64-portable\.zip$'
+
+[[artifacts]]
+executable = "dbx.exe"

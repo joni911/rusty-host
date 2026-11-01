@@ -1,0 +1,12 @@
+# phpMyAdmin — bundled requirement, served at http://localhost:8080.
+# Single fixed artifact: the all-languages package, no version resolution.
+name = "phpmyadmin"
+kind = "tool"
+provides = ["phpmyadmin"]
+
+[resolve]
+strategy = "direct"
+url = "https://files.phpmyadmin.net/phpMyAdmin/5.2.3/phpMyAdmin-5.2.3-all-languages.zip"
+
+[[artifacts]]
+executable = "index.php"

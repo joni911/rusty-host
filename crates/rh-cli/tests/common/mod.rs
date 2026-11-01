@@ -1,3 +1,4 @@
+#![allow(dead_code)] // shared test helper; not every test uses every function
 //! Minimal temp-directory helper for tests.
 //!
 //! Deliberately avoids the `tempfile` crate: it pulls `getrandom`, whose Windows
