@@ -6,6 +6,7 @@
 pub mod component;
 pub mod fetch;
 pub mod hosts;
+pub mod ports;
 pub mod project;
 pub mod resolve;
 pub mod template;
