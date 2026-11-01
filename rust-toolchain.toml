@@ -1,0 +1,4 @@
+# Pinned so every contributor and CI job builds identically.
+# GNU target keeps the Windows build free of a Visual Studio dependency.
+[toolchain]
+channel = "stable"

@@ -1,0 +1,20 @@
+[package]
+name = "rh-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Rusty Host command line interface"
+
+[[bin]]
+name = "rh"
+path = "src/main.rs"
+
+[dependencies]
+rh-core = { path = "../rh-core" }
+anyhow.workspace = true
+
+[dev-dependencies]
+
