@@ -47,11 +47,31 @@ web development. This project keeps what worked and fixes what did not:
 
 ## Status
 
-**Design phase.** The documents above are complete and reviewed; implementation
-has not started.
+**Implementation in progress.** Cycles 1–9 of 17 are complete (144 tests green).
 
-Implementation proceeds through 16 red-green cycles (see `docs/TDD.md` §15),
-milestones M0–M6 (see `docs/PRD.md` §8).
+| Cycle | Module | Tests | State |
+|---|---|---|---|
+| TDD-01 | `workspace` — layout, discovery, lock file | 17 | done |
+| TDD-02 | `component` — declarative descriptors | 11 | done |
+| TDD-03 | `resolve` — version resolution (4 strategies) | 18 | done |
+| TDD-04 | `fetch` + `unpack` — verify, safe extraction | 17 | done |
+| TDD-05 | `template` — `<<TOKEN>>` rendering | 19 | done |
+| TDD-06 | `project` — scan, slug, document root | 18 | done |
+| TDD-07 | `hosts` — atomic managed-block editing | 20 | done |
+| TDD-08 | `vhost` — render and reconcile | 14 | done |
+| TDD-09 | `ports` — pre-flight conflict detection | 10 | done |
+| TDD-10 | `proc` — process supervision | — | next |
+| TDD-11 | `recipe` — project scaffolding | — | planned |
+| TDD-12 | CLI wiring | — | planned |
+| TDD-13 | Portability guarantee | — | planned |
+| TDD-15 | `rh-term` portable terminal | — | planned |
+| — | GUI (Slint, red theme) | — | planned |
+| — | NFR gates | — | planned |
+
+Currently usable from the CLI: `rh init`, `rh list`, `rh doctor`.
+
+The library underneath is complete for install-through-vhost; wiring the
+remaining subcommands is TDD-12.
 
 ## Design in one picture
 
@@ -79,6 +99,20 @@ No absolute paths are ever stored. This is enforced by a test (`TDD-13`).
   publishes one.
 - **Never** modify `PATH` without an explicit command, and make it reversible.
 - **No telemetry.** Version indexes are the only network calls.
+
+## Building
+
+Windows needs a complete mingw-w64 for linking (Rust's bundled `rust-mingw` is
+missing `crtbegin.o`). `scripts/build.sh` finds one automatically:
+
+```bash
+scripts/build.sh test          # 144 tests
+scripts/build.sh build --release
+scripts/build.sh clippy --all-targets
+```
+
+If no toolchain is detected, install one (`scoop install mingw-winlibs`) or set
+`MINGW_ROOT`.
 
 ## Licence
 
