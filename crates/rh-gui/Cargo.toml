@@ -1,0 +1,27 @@
+[package]
+name = "rh-gui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Rusty Host tray application"
+
+[[bin]]
+name = "rusty-host"
+path = "src/main.rs"
+
+[dependencies]
+rh-core = { path = "../rh-core" }
+serde_json.workspace = true
+# Only the winit backend + femtovg renderer: the smaller combination.
+slint = { version = "1", default-features = false, features = [
+    "std",
+    "backend-winit",
+    "renderer-femtovg",
+    "compat-1-2",
+] }
+
+[build-dependencies]
+slint-build = "1"

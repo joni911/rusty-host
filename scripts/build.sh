@@ -41,6 +41,13 @@ if [[ "$(uname -s)" == *MINGW* || "$(uname -s)" == *MSYS* ]]; then
     CC_WIN="$(cygpath -w "$MINGW_FOUND/bin/x86_64-w64-mingw32-gcc.exe" 2>/dev/null || echo "$MINGW_FOUND/bin/x86_64-w64-mingw32-gcc.exe")"
     export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="$CC_WIN"
     export CC_x86_64_pc_windows_gnu="$CC_WIN"
+    # Rust's bundled dlltool.exe cannot spawn its own ld.exe (CreateProcess
+    # fails), so any crate generating import libraries breaks. Prefer the real
+    # mingw one, which works.
+    if [[ -x "$MINGW_FOUND/bin/dlltool.exe" ]]; then
+      DLLTOOL_WIN="$(cygpath -w "$MINGW_FOUND/bin/dlltool.exe" 2>/dev/null || echo "$MINGW_FOUND/bin/dlltool.exe")"
+      export DLLTOOL="$DLLTOOL_WIN"
+    fi
   fi
 
   if [[ -z "${MINGW_FOUND:-}" ]]; then

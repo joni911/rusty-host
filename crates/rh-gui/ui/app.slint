@@ -1,0 +1,310 @@
+// Rusty Host — control panel.
+//
+// Colour palette is the Rust brand red family. These values are mirrored in
+// src/theme.rs and asserted by the theme test, so the red is verifiable rather
+// than a matter of taste.
+//
+// Widgets are built from Rectangles + TouchArea rather than the std-widgets
+// library: it keeps the binary small and gives full control of the theme.
+
+export global Theme {
+    out property <color> rust: #CE422B;
+    out property <color> rust-dark: #A83421;
+    out property <color> panel: #2B1B17;
+    out property <color> panel-raised: #3A2620;
+    out property <color> text: #F5F1EE;
+    out property <color> text-dim: #B5A8A2;
+    out property <color> running: #4CAF50;
+    out property <color> stopped: #7A6A64;
+    out property <color> failed: #E53935;
+}
+
+// A flat button drawn by hand.
+component FlatButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: true;
+    in property <bool> small: false;
+    callback clicked();
+
+    height: small ? 26px : 34px;
+    border-radius: 6px;
+    background: ta.has-hover && primary ? Theme.rust-dark : (primary ? Theme.rust : Theme.panel-raised);
+    // A subtle border so secondary buttons read as interactive.
+    border-width: primary ? 0px : 1px;
+    border-color: Theme.stopped;
+
+    ta := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    Text {
+        text: root.label;
+        color: Theme.text;
+        font-size: small ? 12px : 14px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component ServiceRow inherits Rectangle {
+    in property <string> name;
+    in property <string> state;
+    in property <string> detail;
+    in property <bool> is-running;
+    in property <bool> is-failed;
+    callback toggle();
+
+    height: 56px;
+    border-radius: 6px;
+    background: Theme.panel-raised;
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+        alignment: center;
+
+        Rectangle {
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background: root.is-failed ? Theme.failed : (root.is-running ? Theme.running : Theme.stopped);
+        }
+
+        VerticalLayout {
+            spacing: 2px;
+            vertical-stretch: 1;
+            alignment: center;
+            HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    text: root.name;
+                    color: Theme.text;
+                    font-size: 15px;
+                    font-weight: 600;
+                }
+                Text {
+                    text: root.state;
+                    color: Theme.text-dim;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+            }
+            Text {
+                text: root.detail;
+                color: Theme.text-dim;
+                font-size: 12px;
+            }
+        }
+
+        FlatButton {
+            label: root.is-running ? "Stop" : "Start";
+            primary: !root.is-running;
+            width: 76px;
+            clicked => { root.toggle(); }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "Rusty Host";
+    width: 660px;
+    height: 640px;
+    background: Theme.panel;
+    default-font-size: 14px;
+
+    in-out property <string> workspace;
+    in-out property <string> tld;
+    in-out property <string> status-line;
+    in-out property <bool> workspace-ready;
+
+    in-out property <bool> apache-running;
+    in-out property <string> apache-detail;
+    in-out property <bool> mariadb-running;
+    in-out property <string> mariadb-detail;
+
+    in property <[string]> project-names;
+    in property <[string]> project-urls;
+
+    callback start-all();
+    callback stop-all();
+    callback toggle-apache();
+    callback toggle-mariadb();
+    callback open-www();
+    callback open-phpmyadmin();
+    callback open-dbx();
+    callback open-terminal();
+    callback rescan();
+
+    VerticalLayout {
+        padding: 18px;
+        spacing: 12px;
+
+        // Header
+        HorizontalLayout {
+            spacing: 10px;
+            VerticalLayout {
+                spacing: 2px;
+                vertical-stretch: 1;
+                Text {
+                    text: "Rusty Host";
+                    color: Theme.rust;
+                    font-size: 24px;
+                    font-weight: 800;
+                }
+                Text {
+                    text: root.workspace-ready ? root.workspace : "no workspace yet - run `rh init`";
+                    color: Theme.text-dim;
+                    font-size: 12px;
+                }
+            }
+            Text {
+                text: "." + root.tld;
+                color: Theme.text-dim;
+                font-size: 13px;
+                vertical-alignment: center;
+            }
+        }
+
+        Rectangle { height: 1px; background: Theme.panel-raised; }
+
+        Text {
+            text: "SERVICES";
+            color: Theme.text-dim;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        ServiceRow {
+            name: "Apache";
+            state: root.apache-running ? "running" : "stopped";
+            detail: root.apache-detail;
+            is-running: root.apache-running;
+            is-failed: false;
+            toggle => { root.toggle-apache(); }
+        }
+
+        ServiceRow {
+            name: "MariaDB";
+            state: root.mariadb-running ? "running" : "stopped";
+            detail: root.mariadb-detail;
+            is-running: root.mariadb-running;
+            is-failed: false;
+            toggle => { root.toggle-mariadb(); }
+        }
+
+        HorizontalLayout {
+            spacing: 10px;
+            FlatButton {
+                label: "Start all";
+                horizontal-stretch: 1;
+                clicked => { root.start-all(); }
+            }
+            FlatButton {
+                label: "Stop all";
+                primary: false;
+                horizontal-stretch: 1;
+                clicked => { root.stop-all(); }
+            }
+        }
+
+        Rectangle { height: 1px; background: Theme.panel-raised; }
+
+        HorizontalLayout {
+            spacing: 10px;
+            Text {
+                text: "PROJECTS";
+                color: Theme.text-dim;
+                font-size: 11px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            FlatButton {
+                label: "Rescan";
+                primary: false;
+                small: true;
+                width: 88px;
+                clicked => { root.rescan(); }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            border-radius: 6px;
+            background: Theme.panel-raised;
+            clip: true;
+
+            VerticalLayout {
+                padding: 8px;
+                spacing: 4px;
+                alignment: start;
+
+                Text {
+                    text: root.project-names.length == 0 ? "no projects in www/" : "";
+                    color: Theme.text-dim;
+                    font-size: 12px;
+                }
+
+                for name[i] in root.project-names : Rectangle {
+                    height: 30px;
+                    border-radius: 4px;
+                    background: transparent;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 10px;
+                        alignment: center;
+                        Text {
+                            text: name;
+                            color: Theme.text;
+                            font-size: 13px;
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        Text {
+                            text: root.project-urls[i];
+                            color: Theme.rust;
+                            font-size: 13px;
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            FlatButton {
+                label: "www/";
+                primary: false;
+                horizontal-stretch: 1;
+                clicked => { root.open-www(); }
+            }
+            FlatButton {
+                label: "phpMyAdmin";
+                primary: false;
+                horizontal-stretch: 1;
+                clicked => { root.open-phpmyadmin(); }
+            }
+            FlatButton {
+                label: "dbx";
+                primary: false;
+                horizontal-stretch: 1;
+                clicked => { root.open-dbx(); }
+            }
+            FlatButton {
+                label: "Terminal";
+                primary: false;
+                horizontal-stretch: 1;
+                clicked => { root.open-terminal(); }
+            }
+        }
+
+        Text {
+            text: root.status-line;
+            color: Theme.text-dim;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+}

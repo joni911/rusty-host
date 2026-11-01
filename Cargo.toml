@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/rh-core", "crates/rh-cli"]
+members = ["crates/rh-core", "crates/rh-cli", "crates/rh-gui"]
 
 [workspace.package]
 version = "0.1.0"
