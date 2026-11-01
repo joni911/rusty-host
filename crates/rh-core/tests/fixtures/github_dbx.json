@@ -1,0 +1,13 @@
+{
+  "tag_name": "v0.6.62",
+  "assets": [
+    { "name": "DBX-0.6.62-1.x86_64.rpm", "browser_download_url": "https://example.invalid/DBX-0.6.62-1.x86_64.rpm" },
+    { "name": "DBX_0.6.62_amd64.AppImage", "browser_download_url": "https://example.invalid/DBX_0.6.62_amd64.AppImage" },
+    { "name": "DBX_0.6.62_x64-portable.zip", "browser_download_url": "https://example.invalid/DBX_0.6.62_x64-portable.zip" },
+    { "name": "DBX_0.6.62_x64-setup.exe", "browser_download_url": "https://example.invalid/DBX_0.6.62_x64-setup.exe" },
+    { "name": "DBX_0.6.62_x64-offline-setup.exe", "browser_download_url": "https://example.invalid/DBX_0.6.62_x64-offline-setup.exe" },
+    { "name": "DBX_0.6.62_x64_en-US.msi", "browser_download_url": "https://example.invalid/DBX_0.6.62_x64_en-US.msi" },
+    { "name": "DBX_0.6.62_x64.dmg", "browser_download_url": "https://example.invalid/DBX_0.6.62_x64.dmg" },
+    { "name": "DBX_0.6.62_amd64.deb", "browser_download_url": "https://example.invalid/DBX_0.6.62_amd64.deb" }
+  ]
+}

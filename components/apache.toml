@@ -8,7 +8,7 @@ provides = ["apache", "httpd"]
 [resolve]
 strategy = "html-scrape"
 index_url = "https://www.apachelounge.com/download/"
-file_regex = 'httpd-2\.4\.(\d+)-\d+-Win64-VS\d+\.zip'
+file_regex = 'httpd-(2\.4\.\d+)-\d+-Win64-VS\d+\.zip'
 base_url = "https://www.apachelounge.com/download/VS18/binaries/"
 
 [[artifacts]]

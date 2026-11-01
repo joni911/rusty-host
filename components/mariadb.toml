@@ -9,7 +9,7 @@ provides = ["mariadb", "mysql"]
 strategy = "html-scrape"
 index_url = "https://archive.mariadb.org/"
 file_regex = 'mariadb-(\d+\.\d+\.\d+)-winx64\.zip'
-base_url = "https://archive.mariadb.org/mariadb-{version}/winx64-packages/"
+base_url = "https://archive.mariadb.org/mariadb-{version}/winx64-packages/mariadb-{version}-winx64.zip"
 prefer_lts = true
 
 [[artifacts]]

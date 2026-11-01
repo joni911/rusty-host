@@ -114,7 +114,7 @@ pub struct Descriptor {
 
 impl Descriptor {
     /// Parse and validate a descriptor from TOML text.
-    pub fn from_str(text: &str) -> Result<Self, DescriptorError> {
+    pub fn parse(text: &str) -> Result<Self, DescriptorError> {
         let d: Descriptor = toml::from_str(text).map_err(|e| DescriptorError::Parse {
             source: e.to_string(),
         })?;
@@ -128,7 +128,7 @@ impl Descriptor {
             path: path.display().to_string(),
             source: e.to_string(),
         })?;
-        Descriptor::from_str(&text).map_err(|e| e.with_path(path))
+        Descriptor::parse(&text).map_err(|e| e.with_path(path))
     }
 
     fn validate(&self) -> Result<(), DescriptorError> {

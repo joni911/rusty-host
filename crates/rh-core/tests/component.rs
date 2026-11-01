@@ -63,7 +63,7 @@ executable = "dbx.exe"
 
 #[test]
 fn parses_minimal_runtime_descriptor() {
-    let d = Descriptor::from_str(PHP).unwrap();
+    let d = Descriptor::parse(PHP).unwrap();
     assert_eq!(d.name, "php");
     assert_eq!(d.kind, ComponentKind::Runtime);
     assert_eq!(d.provides, vec!["php".to_string()]);
@@ -78,7 +78,7 @@ fn parses_minimal_runtime_descriptor() {
 
 #[test]
 fn parses_database_descriptor_with_html_scrape() {
-    let d = Descriptor::from_str(MARIADB).unwrap();
+    let d = Descriptor::parse(MARIADB).unwrap();
     assert_eq!(d.kind, ComponentKind::Database);
     match d.resolve {
         ResolveStrategy::HtmlScrape {
@@ -95,7 +95,7 @@ fn parses_database_descriptor_with_html_scrape() {
 
 #[test]
 fn parses_tool_descriptor_with_github_release() {
-    let d = Descriptor::from_str(DBX).unwrap();
+    let d = Descriptor::parse(DBX).unwrap();
     assert_eq!(d.kind, ComponentKind::Tool);
     match d.resolve {
         ResolveStrategy::GithubRelease { repo, asset_regex } => {
@@ -117,7 +117,7 @@ url = "https://example.com/x.zip"
 [[artifacts]]
 executable = "x.exe"
 "#;
-    let err = Descriptor::from_str(bad).unwrap_err();
+    let err = Descriptor::parse(bad).unwrap_err();
     let msg = err.to_string().to_lowercase();
     assert!(msg.contains("name"), "error must mention `name`: {err}");
 }
@@ -132,7 +132,7 @@ strategy = "quantum-teleport"
 [[artifacts]]
 executable = "x.exe"
 "#;
-    let err = Descriptor::from_str(bad).unwrap_err();
+    let err = Descriptor::parse(bad).unwrap_err();
     let msg = err.to_string();
     assert!(
         msg.contains("quantum-teleport") || msg.contains("strategy"),
@@ -150,7 +150,7 @@ strategy = "direct"
 url = "https://example.com/x.zip"
 artifacts = []
 "#;
-    let err = Descriptor::from_str(bad).unwrap_err();
+    let err = Descriptor::parse(bad).unwrap_err();
     assert!(
         err.to_string().to_lowercase().contains("artifact"),
         "error must mention artifacts: {err}"
@@ -169,7 +169,7 @@ url = "https://example.com/x.zip"
 executable = "x.exe"
 "#;
     assert!(
-        Descriptor::from_str(bad).is_err(),
+        Descriptor::parse(bad).is_err(),
         "component names must not contain path separators"
     );
 }

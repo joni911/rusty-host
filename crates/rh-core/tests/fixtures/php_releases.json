@@ -1,0 +1,21 @@
+{
+    "8.5": {
+        "version": "8.5.12-1",
+        "ts-vs17-x64": { "zip": { "path": "php-8.5.12-1-Win32-vs17-x64.zip" } },
+        "nts-vs17-x64": { "zip": { "path": "php-8.5.12-1-nts-Win32-vs17-x64.zip" } }
+    },
+    "8.4": {
+        "version": "8.4.27-1",
+        "ts-vs17-x64": { "zip": { "path": "php-8.4.27-1-Win32-vs17-x64.zip" } },
+        "nts-vs17-x64": { "zip": { "path": "php-8.4.27-1-nts-Win32-vs17-x64.zip" } }
+    },
+    "8.3": {
+        "version": "8.3.36-1",
+        "ts-vs16-x64": { "zip": { "path": "php-8.3.36-1-Win32-vs16-x64.zip" } },
+        "nts-vs16-x64": { "zip": { "path": "php-8.3.36-1-nts-Win32-vs16-x64.zip" } }
+    },
+    "8.2": {
+        "version": "8.2.35-1",
+        "ts-vs16-x64": { "zip": { "path": "php-8.2.35-1-Win32-vs16-x64.zip" } }
+    }
+}

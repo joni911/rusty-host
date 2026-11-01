@@ -1,0 +1,8 @@
+{
+  "tag_name": "v1.33.0",
+  "assets": [
+    { "name": "mailpit-windows-amd64.zip", "browser_download_url": "https://example.invalid/mailpit-windows-amd64.zip" },
+    { "name": "mailpit-linux-amd64.tar.gz", "browser_download_url": "https://example.invalid/mailpit-linux-amd64.tar.gz" },
+    { "name": "mailpit-darwin-arm64.tar.gz", "browser_download_url": "https://example.invalid/mailpit-darwin-arm64.tar.gz" }
+  ]
+}

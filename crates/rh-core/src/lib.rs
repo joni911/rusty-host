@@ -4,4 +4,5 @@
 //! (PRD §4.1). Nothing in this crate prints to stdout.
 
 pub mod component;
+pub mod resolve;
 pub mod workspace;
