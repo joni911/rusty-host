@@ -6,5 +6,6 @@
 pub mod component;
 pub mod fetch;
 pub mod resolve;
+pub mod template;
 pub mod unpack;
 pub mod workspace;
