@@ -10,4 +10,5 @@ pub mod project;
 pub mod resolve;
 pub mod template;
 pub mod unpack;
+pub mod vhost;
 pub mod workspace;
