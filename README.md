@@ -47,7 +47,7 @@ web development. This project keeps what worked and fixes what did not:
 
 ## Status
 
-**Implementation in progress.** Cycles 1–9 of 17 are complete (144 tests green).
+**MVP implementation complete except the text editor/terminal.** 211 tests green.
 
 | Cycle | Module | Tests | State |
 |---|---|---|---|
@@ -60,18 +60,36 @@ web development. This project keeps what worked and fixes what did not:
 | TDD-07 | `hosts` — atomic managed-block editing | 20 | done |
 | TDD-08 | `vhost` — render and reconcile | 14 | done |
 | TDD-09 | `ports` — pre-flight conflict detection | 10 | done |
-| TDD-10 | `proc` — process supervision | — | next |
-| TDD-11 | `recipe` — project scaffolding | — | planned |
-| TDD-12 | CLI wiring | — | planned |
-| TDD-13 | Portability guarantee | — | planned |
+| TDD-10 | `proc` — process supervision, PID-reuse safety | 16 | done |
+| TDD-11 | `recipe` — project scaffolding | 24 | done |
+| TDD-12 | CLI surface + `settings` | 23 | done |
+| TDD-13 | Portability guarantee (NFR-9) | 5 | done |
+| GUI | Slint tray app, Rust red theme | 10 | done |
 | TDD-15 | `rh-term` portable terminal | — | planned |
-| — | GUI (Slint, red theme) | — | planned |
-| — | NFR gates | — | planned |
 
-Currently usable from the CLI: `rh init`, `rh list`, `rh doctor`.
+### What works today
 
-The library underneath is complete for install-through-vhost; wiring the
-remaining subcommands is TDD-12.
+```bash
+rh init                              # portable workspace
+rh doctor                            # health check
+rh list                              # components + what is available
+rh projects                          # folder -> name.test
+rh link                              # write vhosts + hosts entries
+rh sync --dry-run                    # preview reconciliation
+rh new myshop --from Laravel         # scaffold from a recipe
+rh ports                             # configured ports and whether they are free
+rh status / stop / logs
+rhui                                 # (binary: rusty-host) the red tray app
+```
+
+Every command accepts `--root <dir>` and `--json`.
+
+### Known gap
+
+`rh install` resolves versions and installs local archives (`--from`), but does
+not yet download over the network: that last step needs the HTTP client wiring
+(`Upstream` is already implemented and fully tested against fixtures). Until
+then, download the upstream artifact yourself and pass it with `--from`.
 
 ## Design in one picture
 
