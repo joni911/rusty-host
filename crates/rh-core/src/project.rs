@@ -104,7 +104,7 @@ pub fn scan(www: &Path, tld: &str) -> Result<Vec<Project>, ScanError> {
         found.push((name, entry.path()));
     }
 
-    found.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+    found.sort_by_key(|(name, _)| name.to_lowercase());
 
     let mut projects: Vec<Project> = Vec::with_capacity(found.len());
     let mut seen: Vec<(String, String)> = Vec::new();
