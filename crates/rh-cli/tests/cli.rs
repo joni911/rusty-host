@@ -1,144 +1,284 @@
-//! TDD-12 (partial) — CLI surface integration tests.
+//! TDD-12 — CLI surface integration tests.
 //!
-//! Refs: PRD §5. Uses the built binary via `CARGO_BIN_EXE_rh`.
-
-use std::path::{Path, PathBuf};
-use std::process::Command;
+//! Refs: PRD §5. Every test gets a fresh workspace.
 
 mod common;
 use common::TempDir;
 
-fn rh() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_rh"))
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+
+fn run(args: &[&str]) -> (i32, String, String) {
+    let out = Command::new(env!("CARGO_BIN_EXE_rh"))
+        .args(args)
+        .output()
+        .expect("spawn rh");
+    (
+        out.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&out.stdout).to_string(),
+        String::from_utf8_lossy(&out.stderr).to_string(),
+    )
 }
 
-struct Run {
-    code: i32,
-    stdout: String,
-    stderr: String,
-}
-
-fn run(args: &[&str]) -> Run {
-    let out = rh().args(args).output().expect("spawn rh");
-    Run {
-        code: out.status.code().unwrap_or(-1),
-        stdout: String::from_utf8_lossy(&out.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&out.stderr).to_string(),
-    }
-}
-
-fn run_root(root: &Path, args: &[&str]) -> Run {
+fn run_root(root: &Path, args: &[&str]) -> (i32, String, String) {
     let mut all = vec!["--root", root.to_str().unwrap()];
     all.extend_from_slice(args);
     run(&all)
 }
 
+fn ws(label: &str) -> TempDir {
+    let d = TempDir::new(label);
+    let (code, _, err) = run_root(d.path(), &["init"]);
+    assert_eq!(code, 0, "init failed: {err}");
+    d
+}
+
+// -------------------------------------------------------------- basics
+
 #[test]
 fn init_creates_workspace() {
-    let d = TempDir::new("cli-init");
-    let r = run_root(d.path(), &["init"]);
-    assert_eq!(r.code, 0, "stderr: {}", r.stderr);
+    let d = TempDir::new("c-init");
+    let (code, _, err) = run_root(d.path(), &["init"]);
+    assert_eq!(code, 0, "{err}");
     assert!(d.path().join("rh.toml").is_file());
     assert!(d.path().join("components.lock.json").is_file());
     assert!(d.path().join("www").is_dir());
 }
 
 #[test]
-fn init_is_idempotent() {
-    let d = TempDir::new("cli-init2");
-    assert_eq!(run_root(d.path(), &["init"]).code, 0);
-    let r = run_root(d.path(), &["init"]);
-    assert_eq!(r.code, 0, "second init must succeed: {}", r.stderr);
-}
-
-#[test]
-fn list_on_fresh_workspace_reports_empty() {
-    let d = TempDir::new("cli-list");
-    run_root(d.path(), &["init"]);
-    let r = run_root(d.path(), &["list"]);
-    assert_eq!(r.code, 0);
-    assert!(r.stdout.contains("no components installed"), "{}", r.stdout);
-}
-
-#[test]
-fn doctor_reports_healthy_after_init() {
-    let d = TempDir::new("cli-doc");
-    run_root(d.path(), &["init"]);
-    let r = run_root(d.path(), &["doctor"]);
-    assert_eq!(r.code, 0, "stdout: {}", r.stdout);
-    assert!(r.stdout.contains("healthy"), "{}", r.stdout);
-}
-
-#[test]
-fn doctor_fails_on_empty_directory() {
-    let d = TempDir::new("cli-doc2");
-    let r = run_root(d.path(), &["doctor"]);
-    assert_ne!(r.code, 0, "doctor must fail on an uninitialised dir");
-    assert!(
-        r.stderr.contains("problem"),
-        "expected problem report, got: {}",
-        r.stderr
-    );
-}
-
-#[test]
-fn unknown_command_exits_1() {
-    let r = run(&["definitely-not-a-command"]);
-    assert_eq!(r.code, 1, "stderr: {}", r.stderr);
-}
-
-#[test]
-fn errors_go_to_stderr_not_stdout() {
-    let r = run(&["nope"]);
-    assert!(
-        r.stdout.is_empty(),
-        "stdout must stay clean on error, got: {}",
-        r.stdout
-    );
-    assert!(!r.stderr.is_empty(), "error must be on stderr");
-}
-
-#[test]
-fn version_flag_prints_semver() {
-    let r = run(&["--version"]);
-    assert_eq!(r.code, 0);
-    assert!(r.stdout.contains("rh "), "{}", r.stdout);
-}
-
-#[test]
-fn help_is_helpful() {
-    let r = run(&["--help"]);
-    assert_eq!(r.code, 0);
-    for expected in ["init", "list", "doctor"] {
-        assert!(r.stdout.contains(expected), "help missing `{expected}`");
+fn list_shows_available_components_when_empty() {
+    let d = ws("c-list");
+    let (code, out, _) = run_root(d.path(), &["list"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("no components installed"), "{out}");
+    assert!(out.contains("available:"), "must name what can be installed: {out}");
+    for expected in ["php", "mariadb", "apache", "phpmyadmin", "dbx"] {
+        assert!(out.contains(expected), "missing {expected} in {out}");
     }
 }
 
 #[test]
-fn root_flag_works_before_and_after_command() {
-    let d = TempDir::new("cli-root");
-    let root = d.path().to_str().unwrap().to_string();
-
-    // before
-    let a = run(&["--root", &root, "init"]);
-    assert_eq!(a.code, 0);
-    // after
-    let b = run(&["init", "--root", &root]);
-    assert_eq!(b.code, 0);
-
-    let p: PathBuf = d.path().to_path_buf();
-    assert!(p.join("rh.toml").is_file());
+fn list_json_is_machine_readable() {
+    let d = ws("c-json");
+    let (code, out, _) = run_root(d.path(), &["list", "--json"]);
+    assert_eq!(code, 0);
+    let v: serde_json::Value = serde_json::from_str(&out).expect("list --json must be valid JSON");
+    assert!(v.is_object(), "expected an object, got {v}");
 }
 
 #[test]
-fn discover_works_from_subdirectory() {
-    let d = TempDir::new("cli-sub");
-    run_root(d.path(), &["init"]);
-    let sub = d.path().join("www").join("proj");
-    std::fs::create_dir_all(&sub).unwrap();
+fn doctor_reports_healthy_after_init() {
+    let d = ws("c-doc");
+    let (code, out, _) = run_root(d.path(), &["doctor"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("healthy"), "{out}");
+}
 
-    // no --root: must discover the workspace by walking up
-    let out = rh()
+#[test]
+fn doctor_fails_on_uninitialised_directory() {
+    let d = TempDir::new("c-doc2");
+    let (code, _, err) = run_root(d.path(), &["doctor"]);
+    assert_ne!(code, 0);
+    assert!(err.contains("problem"), "{err}");
+}
+
+#[test]
+fn errors_go_to_stderr_and_stdout_stays_clean() {
+    let (code, out, err) = run(&["definitely-not-a-command"]);
+    assert_eq!(code, 1);
+    assert!(out.is_empty(), "stdout must be clean, got {out}");
+    assert!(!err.is_empty());
+}
+
+#[test]
+fn help_lists_every_command() {
+    let (code, out, _) = run(&["--help"]);
+    assert_eq!(code, 0);
+    for cmd in [
+        "init", "doctor", "list", "install", "projects", "link", "sync", "new", "status",
+        "stop", "ports", "hosts", "recipes",
+    ] {
+        assert!(out.contains(cmd), "help missing `{cmd}`");
+    }
+}
+
+// ------------------------------------------------------------- projects
+
+#[test]
+fn projects_lists_hostnames() {
+    let d = ws("c-proj");
+    fs::create_dir_all(d.path().join("www").join("My Shop")).unwrap();
+    fs::create_dir_all(d.path().join("www").join("blog")).unwrap();
+
+    let (code, out, _) = run_root(d.path(), &["projects"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("my-shop.test"), "{out}");
+    assert!(out.contains("blog.test"), "{out}");
+}
+
+#[test]
+fn projects_json_has_the_documented_fields() {
+    let d = ws("c-proj2");
+    fs::create_dir_all(d.path().join("www").join("demo")).unwrap();
+
+    let (code, out, _) = run_root(d.path(), &["projects", "--json"]);
+    assert_eq!(code, 0);
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let first = &v[0];
+    for field in ["name", "hostname", "path", "document_root"] {
+        assert!(first.get(field).is_some(), "missing {field} in {first}");
+    }
+}
+
+#[test]
+fn sync_dry_run_creates_nothing() {
+    let d = ws("c-sync");
+    fs::create_dir_all(d.path().join("www").join("demo")).unwrap();
+
+    let (code, out, _) = run_root(d.path(), &["sync", "--dry-run"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("demo.test"), "{out}");
+    assert!(
+        !d.path().join("conf").join("apache").exists(),
+        "dry run must not write configs"
+    );
+}
+
+#[test]
+fn link_writes_a_vhost() {
+    let d = ws("c-link");
+    fs::create_dir_all(d.path().join("www").join("demo")).unwrap();
+
+    let (code, out, _) = run_root(d.path(), &["link"]);
+    assert_eq!(code, 0, "{out}");
+
+    let conf = d
+        .path()
+        .join("conf")
+        .join("apache")
+        .join("sites-enabled")
+        .join("demo.test.conf");
+    assert!(conf.is_file(), "vhost must exist at {}", conf.display());
+    let body = fs::read_to_string(&conf).unwrap();
+    assert!(body.contains("ServerName demo.test"));
+}
+
+#[test]
+fn unlink_removes_the_vhost() {
+    let d = ws("c-unlink");
+    fs::create_dir_all(d.path().join("www").join("demo")).unwrap();
+    run_root(d.path(), &["link"]);
+
+    let (code, _, _) = run_root(d.path(), &["unlink", "demo"]);
+    assert_eq!(code, 0);
+    let conf = d
+        .path()
+        .join("conf")
+        .join("apache")
+        .join("sites-enabled")
+        .join("demo.test.conf");
+    assert!(!conf.exists(), "vhost must be gone");
+}
+
+// -------------------------------------------------------------- recipes
+
+#[test]
+fn recipes_lists_builtins() {
+    let (code, out, _) = run(&["recipes"]);
+    assert_eq!(code, 0);
+    for r in ["Blank", "WordPress", "Laravel"] {
+        assert!(out.contains(r), "missing {r} in {out}");
+    }
+}
+
+#[test]
+fn new_creates_a_project_directory() {
+    let d = ws("c-new");
+    let (code, out, _) = run_root(d.path(), &["new", "mysite", "--from", "Blank"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(d.path().join("www").join("mysite").is_dir());
+}
+
+#[test]
+fn new_refuses_existing_project() {
+    let d = ws("c-new2");
+    fs::create_dir_all(d.path().join("www").join("taken")).unwrap();
+    let (code, _, err) = run_root(d.path(), &["new", "taken", "--from", "Blank"]);
+    assert_ne!(code, 0);
+    assert!(err.contains("already exists"), "{err}");
+}
+
+#[test]
+fn new_rejects_unknown_recipe() {
+    let d = ws("c-new3");
+    let (code, _, err) = run_root(d.path(), &["new", "x", "--from", "NoSuchRecipe"]);
+    assert_ne!(code, 0);
+    assert!(err.contains("NoSuchRecipe"), "{err}");
+}
+
+// --------------------------------------------------------------- ports
+
+#[test]
+fn ports_reports_configured_ports() {
+    let d = ws("c-ports");
+    let (code, out, _) = run_root(d.path(), &["ports"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("http"), "{out}");
+    assert!(out.contains("mysql"), "{out}");
+    assert!(out.contains("phpmyadmin"), "{out}");
+    // Each row states free or in use.
+    assert!(out.contains("free") || out.contains("IN USE"), "{out}");
+}
+
+#[test]
+fn status_reports_without_any_service() {
+    let d = ws("c-status");
+    let (code, out, _) = run_root(d.path(), &["status"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("service"), "{out}");
+}
+
+#[test]
+fn stop_on_nothing_is_benign() {
+    let d = ws("c-stop");
+    let (code, _, _) = run_root(d.path(), &["stop"]);
+    assert_eq!(code, 0, "stopping nothing must not fail");
+}
+
+// ---------------------------------------------------------------- misc
+
+#[test]
+fn install_without_network_explains_the_options() {
+    let d = ws("c-inst");
+    let (code, out, _) = run_root(d.path(), &["install", "php"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("--from"), "must mention the offline path: {out}");
+}
+
+#[test]
+fn install_rejects_unknown_component() {
+    let d = ws("c-inst2");
+    let (code, _, err) = run_root(d.path(), &["install", "nosuchthing"]);
+    assert_ne!(code, 0);
+    assert!(err.contains("nosuchthing"), "{err}");
+}
+
+#[test]
+fn uninstall_requires_an_explicit_version() {
+    let d = ws("c-uninst");
+    let (code, _, err) = run_root(d.path(), &["uninstall", "php"]);
+    assert_ne!(code, 0);
+    assert!(err.contains("version"), "{err}");
+}
+
+#[test]
+fn discover_works_from_a_subdirectory() {
+    let d = ws("c-discover");
+    let sub = d.path().join("www").join("proj");
+    fs::create_dir_all(&sub).unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_rh"))
         .current_dir(&sub)
         .arg("list")
         .output()

@@ -11,6 +11,7 @@ pub mod proc;
 pub mod project;
 pub mod recipe;
 pub mod resolve;
+pub mod settings;
 pub mod template;
 pub mod unpack;
 pub mod vhost;
