@@ -190,7 +190,7 @@ P0 column only.**
 
 | # | Laragon | Rusty Host | Priority |
 |---|---|---|---|
-| 63 | Embedded console (cmder) | ❌ Use OS terminal | — |
+| 63 | Embedded console (cmder) | ✅ **Replaced by `rh-term`** — portable, component-aware, multi-window | **P0** | See PRD §12 |
 | 64 | ngrok / Quick Cloud Server | ❌ Out of scope (privacy, account needed) | — |
 | 65 | NetStat / port viewer | ✅ `rh ports` | **P1** |
 | 66 | Path variables editor | ✅ `rh env` | **P1** |
@@ -238,6 +238,7 @@ rusty-host/
 │   │   └── recipe.rs           project scaffolding
 │   ├── rh-cli/                 binary `rh` (clap)
 │   └── rh-gui/                 binary `rusty-host` (tray)
+│   └── rh-term/                binary `rh-term` (portable terminal)
 ├── components/                 built-in descriptors (*.toml)
 ├── templates/                  built-in config fragments
 └── tests/                      integration tests
@@ -459,6 +460,9 @@ rh ssl [--enable <site>|--list]      self-signed certs
 rh env [--install|--remove|--show]   user PATH management
 rh open [www|phpmyadmin|dbx|site]    launch helper
 rh gui                               launch tray app
+rh term [--here|--project <x>]       portable terminal, components on PATH
+         [--shell <pwsh|cmd|bash>] [--new-window] [--php <ver>]
+rh term --list | --kill <id>         list / reap terminal sessions
 ```
 
 Every command supports `--json` for scripting. Exit codes: `0` ok,
@@ -511,8 +515,9 @@ Every command supports `--json` for scripting. Exit codes: `0` ok,
 | **M2** Servers | templates, vhosts, hosts file, `link`/`sync`, ports | `http://demo.test` serves PHP |
 | **M3** Database | MariaDB + init datadir + phpMyAdmin + dbx | phpMyAdmin reachable at :8080 |
 | **M4** Lifecycle | `start/stop/restart/reload/status/logs`, PID safety | no orphan after kill -9 |
-| **M5** GUI | tray app, red Rust theme | toggles work from tray |
-| **M6** Polish | `upgrade`, `new`, docs, installer-free zip | fresh-machine smoke test passes |
+| **M5** GUI | Slint tray app, red Rust theme | toggles work from tray |
+| **M6** Terminal | `rh-term` — PTY + VT grid + multi-window, env injection | `php -v` works in a fresh terminal with no setup |
+| **M7** Polish | `upgrade`, `new`, docs, installer-free zip | fresh-machine smoke test passes |
 
 ---
 
@@ -528,8 +533,11 @@ A user with **only** a Windows machine and internet access can:
 6. Open `http://demo.test` → their PHP runs
 7. Open `http://localhost:8080` → phpMyAdmin logs into MariaDB
 8. Run `rh gui` → red tray icon, services green
-9. **Never** see a UAC prompt (except optionally for hosts editing)
-10. Run `rh upgrade` a month later → gets genuinely newer components
+9. Run `rh term` → a terminal opens where `php -v`, `mysql --version` and
+   `httpd -v` **all work immediately** with no PATH setup
+10. Open a second `rh term --new-window` → independent session, same components
+11. **Never** see a UAC prompt (except optionally for hosts editing)
+12. Run `rh upgrade` a month later → gets genuinely newer components
 
 ---
 
@@ -542,20 +550,137 @@ A user with **only** a Windows machine and internet access can:
 | MariaDB portable zip needs MSVC runtime | database won't start | `rh doctor` checks VC++ runtime; document download link |
 | `dbx` 42 MB portable zip is a Tauri app | needs WebView2 | Check WebView2 presence; fall back to phpMyAdmin |
 | Apache Lounge has no version API | brittle scraping | Cache parsed index; allow `rusty-host.components` remote override |
-| GUI binary bloat vs NFR-4 | misses target | `egui` + `opt-level="z"`; measure in CI |
+| GUI binary bloat vs NFR-4 | misses target | Slint + `opt-level="z"`; measure in CI |
 
 ---
 
-## 11. Open questions
+## 11. Decisions (resolved)
 
-1. Default DB: **MariaDB** (portable zip, no installer) vs MySQL (installer-only on
-   Windows). PRD assumes MariaDB. Confirm?
-2. Default web server: Apache (`.htaccess` compatibility) vs Nginx (faster).
-   PRD assumes Apache for MVP.
-3. TLD: `.test` (RFC 6761 reserved, recommended) — confirm over `.local`?
-4. Bundle a minimal VC++ runtime notice, or hard-fail with instructions?
-5. GUI framework: `egui` (pure Rust, bigger binary) vs `slint` (smaller) vs
-   `native-windows-gui` (smallest, Windows-only)?
+All five open questions are now **decided** and binding for implementation.
+
+| # | Question | **Decision** | Rationale |
+|---|---|---|---|
+| 1 | Default database | **MariaDB** | Portable zip, no installer. MySQL on Windows is installer-first, which breaks the portability promise |
+| 2 | Default web server | **Apache** | `.htaccess` compatibility — most PHP apps assume it. Nginx via `rh use server=nginx` |
+| 3 | Default TLD | **`.test`** | RFC 6761 reserved, never resolves publicly, no mDNS collision like `.local` |
+| 4 | VC++ runtime handling | **Hard-fail with instructions** | Detect, print the exact download link, do not bundle. Keeps the zip small, avoids redistributing MS binaries |
+| 5 | GUI framework | **Slint** (v1.18) | Smaller binary than egui, declarative `.slint` markup, one toolkit for tray + terminal |
+
+---
+
+## 12. Portable terminal (`rh-term`)
+
+### 12.1 Why
+
+Laragon bundles **cmder** as its embedded console. cmder is a ConEmu fork: a large
+C++ package, and it is **not aware of Laragon's components** — the user still has to
+know where PHP lives and activate versions by hand.
+
+Rusty Host ships its own terminal with three properties cmder cannot offer:
+
+1. **Component-aware.** `PATH`, `PHPRC`, `MYSQL_HOME` and friends are injected from
+the active component set. Typing `php -v` always runs the selected version — no
+manual `PATH` surgery, ever.
+2. **Tiny.** Rust + system ConPTY. No bundled emulator baggage.
+3. **Multi-window.** Independent windows and tabs, each with its own shell session,
+   working directory and environment snapshot.
+
+### 12.2 Feature requirements
+
+| ID | Requirement | Priority |
+|---|---|---|
+| TERM-1 | Open a real shell (PowerShell / cmd / bash / custom) in a window | **P0** |
+| TERM-2 | **Multiple windows** simultaneously, each fully independent | **P0** |
+| TERM-3 | **Tabs** within a window | **P1** |
+| TERM-4 | Inject active component dirs into `PATH` + set component env vars | **P0** |
+| TERM-5 | Respect per-project `.rh.toml` version pins | **P0** |
+| TERM-6 | Start in a chosen directory (project, workspace root, or cwd) | **P0** |
+| TERM-7 | Correct VT/ANSI rendering, 256-colour and truecolour | **P0** |
+| TERM-8 | Resize propagates to the child PTY | **P0** |
+| TERM-9 | Copy / paste — Ctrl+Shift+C/V **and** right-click | **P0** |
+| TERM-10 | Scrollback buffer ≥ 5 000 lines | **P0** |
+| TERM-11 | Search in scrollback | **P1** |
+| TERM-12 | Full-screen TUI apps work (vim, htop, composer interactive) | **P0** |
+| TERM-13 | Unicode + emoji + wide CJK glyphs correct | **P1** |
+| TERM-14 | Per-window env snapshot stable across `rh use` until reopened | **P1** |
+| TERM-15 | CLI launch: `rh term [--here] [--project x] [--shell pwsh]` | **P0** |
+| TERM-16 | Launch from GUI tray and project context menu | **P1** |
+| TERM-17 | Theme follows the Rusty Host red palette | **P2** |
+| TERM-18 | Hyperlink detection, Ctrl+click to open | **P2** |
+| TERM-19 | Split panes inside a tab | **P2** |
+
+### 12.3 Technical approach
+
+```
+rh-term  (binary)
+   │
+   ├── PTY layer    portable-pty v0.9         ConPTY on Windows, openpty elsewhere
+   │      └─ spawns pwsh/cmd/bash with an injected environment
+   │
+   ├── VT layer     alacritty_terminal v0.26  Term parser + grid + scrollback
+   │      └─ ANSI/VT parsing, damage tracking, selection model
+   │
+   └── UI layer     Slint v1.18               same toolkit as the tray app
+          └─ custom `TerminalView`: blits the grid, routes input
+```
+
+| Crate | Role | Why |
+|---|---|---|
+| `portable-pty` | PTY + spawn | 25 M downloads, de-facto Rust PTY abstraction, uses ConPTY (required for TUIs) |
+| `alacritty_terminal` | VT parsing + grid | Battle-tested in Alacritty; covers the escape-sequence long tail we must not reinvent |
+| `slint` | Rendering + windows | Already chosen for GUI; one toolkit keeps total size down |
+
+**Deliberately not used:** `wezterm` (huge dependency tree), `conpty` crate
+(Windows-only, redundant), any WebView/Electron-style embedded terminal.
+
+### 12.4 Environment injection — the differentiator
+
+On spawn the child receives:
+
+```
+base env (inherited)
+  + PATH        ← active component bin dirs, precedence order:
+                    bin/php/<active>/            → php
+                    bin/mariadb/<active>/bin/    → mysql, mariadb, mysqldump
+                    bin/apache/<active>/bin/     → httpd
+                    bin/nginx/<active>/          → nginx
+  + PHPRC       ← conf/php/<active>/             so php.ini is found
+  + MYSQL_HOME  ← bin/mariadb/<active>/
+  + RH_ROOT     ← workspace root
+  + RH_PROJECT  ← project dir when launched in project context
+  + RH_SHELL    ← "1" — lets scripts detect they run under Rusty Host
+```
+
+Version precedence (highest first):
+
+1. Explicit flag — `rh term --php 8.3`
+2. Project pin — `.rh.toml` in cwd or an ancestor under `www/`
+3. Workspace default — `rh.toml [defaults]`
+4. Newest installed
+
+Because `php` resolves through an injected `PATH`, **every component Laragon ships
+is immediately usable** — `php`, `mysql`, `mariadb`, `mysqldump`, `httpd`, `nginx` —
+with zero manual configuration. That is the entire point of the feature.
+
+### 12.5 Multi-window model
+
+- A **window** is a separate OS window owning its own Slint state.
+- A **tab** owns one PTY session and one environment snapshot (TERM-14).
+- `rh term --new-window` spawns a **separate process**, not a child window, so a
+  crash in one terminal cannot take down the others.
+- Sessions are recorded in `data/run/term/*.json`, so `rh term --list` shows them and
+  `rh term --kill <id>` reaps orphans — the same discipline as service PIDs.
+
+### 12.6 Terminal non-functional targets
+
+| ID | Requirement | Target |
+|---|---|---|
+| TERM-NFR-1 | `rh-term` binary size | **< 12 MB** |
+| TERM-NFR-2 | Cold start to first prompt | **< 400 ms** |
+| TERM-NFR-3 | Idle RSS per window (80×24, 5 000 scrollback) | **< 45 MB** |
+| TERM-NFR-4 | Input-to-echo latency | **< 16 ms** |
+| TERM-NFR-5 | Scroll throughput | 60 fps on a full 5 000-line buffer |
+| TERM-NFR-6 | No orphans after window close or hard kill | verified by test |
 
 ---
 

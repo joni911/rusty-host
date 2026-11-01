@@ -502,10 +502,108 @@ Each row is one PR. Do not start a row until the previous row is green.
 | 12 | Recipes | TDD-11 (7) | `recipe.rs` |
 | 13 | CLI wiring | TDD-12 (10) | `rh-cli` |
 | 14 | Portability | TDD-13 (3) | fixes for anything caught |
-| 15 | GUI | GUI tests (6) | `rh-gui` red theme |
-| 16 | NFR gates | TDD-14 | size/perf tuning |
+| 15 | GUI | GUI tests (6) | `rh-gui` Slint red theme |
+| 16 | **Terminal** | TDD-15 (18) | `rh-term` — PTY, VT, multi-window |
+| 17 | NFR gates | TDD-14 | size/perf tuning |
 
-**Total: ~124 tests before the GUI.** Roughly 25 are property/snapshot tests.
+**Total: ~142 tests before the GUI, ~160 for MVP.** Roughly 28 are property/snapshot
+tests. 10 are `#[ignore]` live tests.
+
+---
+
+## 15a. TDD-15 — Portable terminal (`rh-term`)
+
+**FR:** PRD §12, TERM-1…19, TERM-NFR-1…6
+
+Split into two layers. The **environment builder** is pure logic and gets full unit
+coverage; the **PTY/VT/UI layers** are tested behaviourally and with a pty harness.
+
+### 15a.1 Environment injection (pure, fully tested)
+
+```rust
+// crates/rh-term/src/env.rs — no I/O, takes a resolved ComponentSet, returns Vec<(String,String)>
+
+#[test] fn sets_rh_root_and_rh_shell()
+#[test] fn prepends_php_dir_to_path_before_system_path()
+#[test] fn sets_phprc_to_active_php_conf_dir()
+#[test] fn sets_mysql_home_to_active_mariadb_dir()
+#[test] fn path_order_is_php_then_mariadb_then_apache_then_nginx()
+// deterministic order matters: `php` must not resolve to a stray build
+
+#[test] fn explicit_flag_overrides_project_pin()
+// --php 8.3 beats .rh.toml php=8.4
+#[test] fn project_pin_overrides_workspace_default()
+#[test] fn workspace_default_used_when_no_pin()
+#[test] fn newest_installed_used_when_nothing_specified()
+#[test] fn missing_component_is_omitted_not_errored()
+// only php installed -> PATH has php only, no phantom mariadb entry
+#[test] fn rh_project_set_when_launched_in_project_dir()
+#[test] fn env_is_deterministic()
+// same inputs -> byte-identical env vectors (snapshot test)
+```
+
+Snapshot: `tests/snapshots/term_env.txt`.
+
+### 15a.2 PTY lifecycle
+
+```rust
+#[test] fn spawns_requested_shell()
+#[test] fn child_receives_injected_env()
+// run `cmd /c echo %PHPRC%` -> assert value round-trips
+#[test] fn working_directory_is_respected()
+#[test] fn resize_propagates_to_child_pty()
+#[test] fn closing_window_terminates_child()
+#[test] fn hard_kill_leaves_no_orphan()
+// TERM-NFR-6 — kill the host without graceful shutdown, assert child gone
+#[test] fn session_record_written_and_removed()
+// data/run/term/<id>.json lifecycle
+#[test] fn stale_session_record_is_detected()
+// pid reuse guard, same discipline as service PIDs
+```
+
+### 15a.3 VT parsing & grid (via alacritty_terminal)
+
+```rust
+#[test] fn parses_basic_ansi_colours()
+#[test] fn parses_256_colour_and_truecolour()
+#[test] fn handles_cursor_positioning()
+#[test] fn handles_alternate_screen_buffer()
+// required for vim/less — TERM-12
+#[test] fn handles_line_wrap_and_scroll_region()
+#[test] fn scrollback_retains_configured_lines()
+#[test] fn wide_cjk_and_emoji_occupy_correct_cells()
+#[test] fn malformed_escape_sequence_does_not_panic()
+// fuzz-ish: random byte soup into the parser must never panic
+```
+
+### 15a.4 Multi-window / multi-tab
+
+```rust
+#[test] fn two_sessions_are_independent()
+// output in one must not appear in the other
+#[test] fn tabs_share_window_but_not_pty()
+#[test] fn new_window_spawns_separate_process()
+// crash isolation: assert distinct pid
+#[test] fn session_list_reports_all_open_sessions()
+#[test] fn kill_session_targets_only_that_session()
+#[test] fn env_snapshot_is_per_session()
+// TERM-14 — changing `rh use` must not mutate a live session's env
+```
+
+### 15a.5 NFR gates
+
+```rust
+#[test] fn rh_term_binary_under_12_mb()
+```
+Plus criterion bench: cold start < 400 ms; measured RSS < 45 MB (TERM-NFR-2/3).
+
+### 15a.6 Manual smoke checklist
+1. `rh term` → `php -v` prints the selected version
+2. `rh term --new-window` twice → three independent windows
+3. `vim` inside the terminal renders and exits cleanly
+4. Resize window → `htop`/`vim` reflow correctly
+5. Copy text, paste into Notepad → matches
+6. Close window → no `pwsh.exe` left in Task Manager
 
 ---
 
@@ -571,6 +669,9 @@ Plus one **manual** smoke checklist per release:
 | 47 | TDD-03 (`github-resolver`), TDD-04 |
 | 56, 57, 58 | TDD-11 |
 | 65, 66 | TDD-12 |
+| 63 (terminal) | **TDD-15** (18) |
+| TERM-1…19 | **TDD-15** |
+| TERM-NFR-1…6 | TDD-15.5 |
 | NFR-1…3 | TDD-14 |
 | NFR-7, NFR-8 | TDD-04 (incl. proptest) |
 | NFR-9 | **TDD-13** |
